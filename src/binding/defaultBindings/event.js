@@ -18,6 +18,8 @@ ko.bindingHandlers['event'] = {
         var eventsToHandle = valueAccessor() || {};
         ko.utils.objectForEach(eventsToHandle, function(eventName) {
             if (typeof eventName == "string") {
+                /* add touchstart capability */
+                if(eventName === 'click' && is('touch')) eventName = 'touchstart';
                 ko.utils.registerEventHandler(element, eventName, function (event) {
                     var handlerReturnValue;
                     var handlerFunction = valueAccessor()[eventName];

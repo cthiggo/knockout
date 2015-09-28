@@ -39,7 +39,9 @@ ko.templateEngine.prototype['makeTemplateSource'] = function(template, templateD
     // Named template
     if (typeof template == "string") {
         templateDocument = templateDocument || document;
-        var elem = templateDocument.getElementById(template);
+        //var elem = templateDocument.getElementById(template);
+        /* Edited to strictly find script tags nothign else */
+        var elem = $('script#' + template)[0];//emplateDocument.getElementById(template);
         if (!elem)
             throw new Error("Cannot find template with ID " + template);
         return new ko.templateSources.domElement(elem);

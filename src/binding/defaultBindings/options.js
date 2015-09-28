@@ -90,6 +90,18 @@ ko.bindingHandlers['options'] = {
                 var optionText = applyToObject(arrayEntry, allBindings.get('optionsText'), optionValue);
                 ko.utils.setTextContent(option, optionText);
             }
+            
+            /* EDITED */
+            // We need to set the select value first, so that we don't have to do it after it's loaded.  Chosen automatically selects the first
+            //    option, and if the option is a refresh-list or object-selector, then those actions are called, first, then the whole select is
+            //    re-fetched.
+            if(typeof element.multiple === 'undefined' || element.multiple == false){
+                arrayEntry[allBindings.get('optionsValue')]() !== 'refresh-list' && arrayEntry[allBindings.get('optionsValue')]() !== 'object-selector' && index() < 3 ?
+                    ko.utils.setOptionNodeSelectionState(option, true):
+                    ko.utils.setOptionNodeSelectionState(option, false);
+            }
+
+
             return [option];
         }
 
@@ -109,7 +121,15 @@ ko.bindingHandlers['options'] = {
                 // IE6 doesn't like us to assign selection to OPTION nodes before they're added to the document.
                 // That's why we first added them without selection. Now it's time to set the selection.
                 var isSelected = ko.utils.arrayIndexOf(previousSelectedValues, ko.selectExtensions.readValue(newOptions[0])) >= 0;
-                ko.utils.setOptionNodeSelectionState(newOptions[0], isSelected);
+                
+                /* EDITED */
+                // We need to set the select value first, so that we don't have to do it after it's loaded.  Chosen automatically selects the first
+                //    option, and if the option is a refresh-list or object-selector, then those actions are called, first, then the whole select is
+                //    re-fetched.
+                if(typeof element.multiple !== 'undefined' && element.multiple == true){
+                    ko.utils.setOptionNodeSelectionState(newOptions[0], isSelected);
+                }
+
 
                 // If this option was changed from being selected during a single-item update, notify the change
                 if (itemUpdate && !isSelected) {

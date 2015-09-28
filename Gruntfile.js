@@ -25,11 +25,13 @@ module.exports = function(grunt) {
         },
         build: {
             debug: './build/output/knockout-latest.debug.js',
-            min: './build/output/knockout-latest.js'
+            min: './build/output/knockout-latest.js',
+            copy: '../chinook/app/view/ui/resources/knockout/knockout-custom-great.js'
         },
         dist: {
             debug: './dist/knockout.debug.js',
-            min: './dist/knockout.js'
+            min: './dist/knockout.js',
+            copy: '../chinook/app/view/ui/resources/knockout/knockout-custom-great.min.js'
         },
         test: {
             phantomjs: 'spec/runner.phantom.js',
@@ -108,7 +110,10 @@ module.exports = function(grunt) {
             compilation_level: 'ADVANCED_OPTIMIZATIONS',
             output_wrapper: '(function() {%output%})();'
         };
+        var buildConfig = grunt.config('build'),
+            distConfig = grunt.config('dist');
         grunt.log.write('Compiling...');
+        grunt.file.write(buildConfig.copy, '/**@const*/var DEBUG=false;' + getCombinedSources());
         cc.compile('/**@const*/var DEBUG=false;' + getCombinedSources(), options, function (err, stdout, stderr) {
             if (err) {
                 grunt.log.error(err);
@@ -116,6 +121,7 @@ module.exports = function(grunt) {
             } else {
                 grunt.log.ok();
                 grunt.file.write(output, (grunt.config('banner') + stdout).replace(/\r\n/g, '\n'));
+                grunt.file.copy(output, distConfig.copy);
                 done(true);
             }
         });

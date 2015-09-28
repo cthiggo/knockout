@@ -204,7 +204,8 @@
 
             // Call setDomNodeChildrenFromArrayMapping, ignoring any observables unwrapped within (most likely from a callback function).
             // If the array items are observables, though, they will be unwrapped in executeTemplateForArrayItem and managed within setDomNodeChildrenFromArrayMapping.
-            ko.dependencyDetection.ignore(ko.utils.setDomNodeChildrenFromArrayMapping, null, [targetNode, filteredArray, executeTemplateForArrayItem, options, activateBindingsCallback]);
+            if(!options.bIsModule || !_fnGetTemplateNames(options,parentBindingContext).filter(function(s){ return !_fnTemplateLoaded(s); }).length)
+                ko.dependencyDetection.ignore(ko.utils.setDomNodeChildrenFromArrayMapping, null, [targetNode, filteredArray, executeTemplateForArrayItem, options, activateBindingsCallback]);
 
         }, null, { disposeWhenNodeIsRemoved: targetNode });
     };
@@ -297,6 +298,159 @@
         return "This template engine does not support anonymous templates nested within its templates";
     };
 
+    
+     /**
+      * Module Loading system
+      */
+     
+     
+    var _fnTemplateLoaded = function(sName){
+            return !!$('script#' + sName).length;
+        },
+        _fnBindObjectsToChildren = function(asObjects, element,iIndex,oData){
+            if(oData instanceof Base_Object){
+                var oObjectOptions = {};
+
+                if(typeof asObjects === 'object'){
+                    oObjectOptions = asObjects;
+                    oObjectOptions.object = oData;
+                    oObjectOptions.noText = true;
+                } else {
+                    oObjectOptions = {
+                        object: oData,
+                        noText: true,
+                        openModal:false
+                    };
+                }
+
+                ko.applyBindingsToNode(element,{
+                    object: oObjectOptions
+                });
+            }
+        },
+        _fnResolveTemplateName = function(mName, oData, oContext){
+           if(typeof mName === 'function'){
+               return mName(oData, oContext);
+           } else {
+               return ko.unwrap(mName);
+           }
+        },
+        _fnAddToQueue = function(sName,fnCallback){
+           if(typeof window['oafnModuleLoadingQueue'] === 'undefined') window['oafnModuleLoadingQueue'] = {};
+           if(window['oafnModuleLoadingQueue'][sName] && Array.isArray(window['oafnModuleLoadingQueue'][sName])){
+               window['oafnModuleLoadingQueue'][sName].push(fnCallback);
+           } else {
+               window['oafnModuleLoadingQueue'][sName] = [fnCallback];
+           }
+        },
+        _fnExecuteQueue = function(sName){
+           if(window['oafnModuleLoadingQueue'][sName] && window['oafnModuleLoadingQueue'][sName].length){
+               while(window['oafnModuleLoadingQueue'][sName].length > 0){
+                   window['oafnModuleLoadingQueue'][sName].shift()();
+               }
+           }
+        },
+        _fnAddScriptToDom = function(sName,sHtml){
+           if (!_fnTemplateLoaded(sName)){
+               $('body').append($('<script id="'+sName+'" type="text/html">' + sHtml + '</script>'));
+           }
+        },
+        _fnLoadTemplate = function(sName){
+            if (!_fnTemplateLoaded(sName)){
+                return once(function(){
+                    c.ajax(HTTPBASE + 'snippet/' + sName, {}, function(sHtml){
+                        _fnAddScriptToDom(sName,sHtml);
+                        _fnExecuteQueue(sName);
+                        return;
+                    });
+                },750,this,sName);
+
+            } else { 
+               return _fnExecuteQueue(sName);
+            }
+        },
+        _fnGetTemplateNames = function(oOptions, oContext){
+           var asListOfTemplateNames = [];
+
+           if(typeof oOptions.foreach !== 'undefined' && ko.unwrap(oOptions.foreach).length){
+               asListOfTemplateNames = $.unique(ko.unwrap(oOptions.foreach).map(function(oData){ return _fnResolveTemplateName(oOptions.name, oData, oContext); }));
+           } else if(typeof oOptions.foreach === 'undefined') {
+               asListOfTemplateNames.push(_fnResolveTemplateName(oOptions.name, oOptions.data, oContext));
+           }
+           return asListOfTemplateNames;
+        },
+        _fnLoadTemplates = function(asListOfTemplateNames,_fnBinding){
+            if(asListOfTemplateNames.length){
+               asListOfTemplateNames.forEach(function(s){
+                   _fnLoadTemplate(s);
+               });
+            } else _fnBinding();
+        };
+        
+     
+   /**
+    * Equivalent to template binding, except it loads the template into DOM if it
+    *      does not exist.
+    *      
+    *      <.. data-bind="module: { name: 'toolbar', data:{ 'oTable':oTable }}" ..>
+    *      
+    *      <.. data-bind="module: {
+                     name:'file',
+                     foreach:this.aoFiles, //observable array of File objects
+                     asObjects:true
+           }" ..>
+
+           <.. data-bind="module: {
+                     name:'file',
+                     foreach:this.aoFiles, //observable array of File objects
+                     asObjects:{
+                       contextMenu:false,
+                       popover:true,
+                       selectable:false,
+                       callback:function(){}
+                     }
+           }" ..>
+    *       
+    * @type binding handler
+    */
+    ko.bindingHandlers.module = {
+        init: function(element, fnValueAccessor, fnAllBindings, oVm, oBindingContext) {
+            //return { 'controlsDescendantBindings': true };
+            return ko.bindingHandlers.template.init(element, fnValueAccessor, fnAllBindings, oVm, oBindingContext);
+        },
+        update: function(element, fnValueAccessor, fnAllBindings, oVm, oBindingContext) {
+            setRandomId($(element));
+            var oOptions = ko.unwrap(fnValueAccessor()),
+                oData = oOptions.data;
+
+            oOptions.afterAdd = function(element,iIndex,oData){};
+            oOptions.afterRender = function(element,oData,iIndex){
+                if(oOptions.asObjects)
+                    _fnBindObjectsToChildren(oOptions.asObjects,element[0],1,oData);
+                if(typeof oOptions.callback === 'function') oOptions.callback(element[0],1,oData);
+            };
+            oOptions.bIsModule = true;
+           
+            //Action to add the template to binding, once and if loaded.
+            var _fnBinding = (function(){
+                    return function(){
+                        return ko.bindingHandlers.template.update(element, function() { return oOptions; }, fnAllBindings, oVm, oBindingContext);
+                    };
+                }(element,oOptions,fnAllBindings,oVm,oBindingContext)),
+                asListOfTemplateNames = _fnGetTemplateNames(oOptions,oBindingContext);
+
+            //If there are multiple names, initiate binding only after the last one was loaded
+            if(typeof oOptions.name === 'function' && asListOfTemplateNames.length) 
+                _fnAddToQueue(asListOfTemplateNames[asListOfTemplateNames.length-1],_fnBinding);
+            else _fnAddToQueue(oOptions.name,_fnBinding);
+                
+            if(asListOfTemplateNames.filter(function(s){ return !_fnTemplateLoaded(s); }).length)
+                _fnLoadTemplates(asListOfTemplateNames,_fnBinding);
+            else _fnBinding();
+        }
+    };
+    
+    ko.virtualElements.allowedBindings.module = true;
     ko.virtualElements.allowedBindings['template'] = true;
 })();
 
