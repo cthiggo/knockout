@@ -450,7 +450,19 @@
         }
     };
     
-    ko.virtualElements.allowedBindings.module = true;
+    // Anonymous templates can't be rewritten. Give a nice error message if you try to do it.
+    ko.expressionRewriting.bindingRewriteValidators['module'] = function(bindingValue) {
+        var parsedBindingValue = ko.expressionRewriting.parseObjectLiteral(bindingValue);
+
+        if ((parsedBindingValue.length == 1) && parsedBindingValue[0]['unknown'])
+            return null; // It looks like a string literal, not an object literal, so treat it as a named template (which is allowed for rewriting)
+
+        if (ko.expressionRewriting.keyValueArrayContainsKey(parsedBindingValue, "name"))
+            return null; // Named templates can be rewritten, so return "no error"
+        return "This template engine does not support anonymous templates nested within its templates";
+    };
+    
+    ko.virtualElements.allowedBindings['module'] = true;
     ko.virtualElements.allowedBindings['template'] = true;
 })();
 

@@ -48,3 +48,4 @@ ko.utils.domData = new (function () {
 
 ko.exportSymbol('utils.domData', ko.utils.domData);
 ko.exportSymbol('utils.domData.clear', ko.utils.domData.clear); // Exporting only so specs can clear up after themselves fully
+ko.exportSymbol('utils.domData.nextKey', ko.utils.domData.nextKey); // Exporting only so specs can clear up after themselves fully

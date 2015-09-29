@@ -570,6 +570,10 @@ ko.utils = (function () {
 }());
 
 ko.exportSymbol('utils', ko.utils);
+ko.exportSymbol('utils.setOptionNodeSelectionState', ko.utils.setOptionNodeSelectionState);
+ko.exportSymbol('utils.setDomNodeChildrenFromArrayMapping', ko.utils.setDomNodeChildrenFromArrayMapping);
+ko.exportSymbol('utils.ensureSelectElementIsRenderedCorrectly', ko.utils.ensureSelectElementIsRenderedCorrectly);
+ko.exportSymbol('utils.tagNameLower', ko.utils.tagNameLower);
 ko.exportSymbol('utils.arrayForEach', ko.utils.arrayForEach);
 ko.exportSymbol('utils.arrayFirst', ko.utils.arrayFirst);
 ko.exportSymbol('utils.arrayFilter', ko.utils.arrayFilter);
